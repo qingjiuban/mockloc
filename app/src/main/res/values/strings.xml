@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">定位助手</string>
+    <string name="app_name_en">MockLoc</string>
+
+    <string name="tab_home">定位</string>
+    <string name="tab_map">地图</string>
+    <string name="tab_places">地点</string>
+    <string name="tab_settings">设置</string>
+
+    <string name="status_running">模拟中</string>
+    <string name="status_idle">未启动</string>
+    <string name="status_error">需要处理</string>
+
+    <string name="btn_start">启动模拟定位</string>
+    <string name="btn_stop">停止模拟定位</string>
+    <string name="btn_open_map">选择位置</string>
+    <string name="btn_guide">配置引导</string>
+
+    <string name="notification_channel_name">模拟定位运行状态</string>
+    <string name="notification_channel_desc">显示当前模拟定位的运行状态与停止入口</string>
+    <string name="notification_title_running">模拟定位进行中</string>
+    <string name="notification_action_stop">停止</string>
+    <string name="notification_action_open">打开</string>
+    <string name="notification_restore_title">模拟定位未恢复</string>
+    <string name="notification_restore_text">点击打开应用，一键恢复上次的模拟位置</string>
+
+    <string name="search_hint">搜索城市、地区或地址</string>
+    <string name="lat_hint">纬度 (-90 ~ 90)</string>
+    <string name="lon_hint">经度 (-180 ~ 180)</string>
+
+    <string name="guide_title">开启模拟定位</string>
+    <string name="perm_location_title">定位权限</string>
+    <string name="dev_options_title">开发者选项</string>
+    <string name="mock_app_title">选择模拟位置信息应用</string>
+
+    <string name="label_accuracy">精度</string>
+    <string name="label_interval">刷新间隔</string>
+    <string name="label_provider">注入通道</string>
+    <string name="label_tile">地图样式</string>
+    <string name="label_auto_resume">重启后自动恢复</string>
+    <string name="label_keep_alive">保持后台运行</string>
+
+    <string name="disclaimer">本应用仅用于开发测试、位置演示等合法场景。请遵守相关法律法规及平台服务条款，不得用于欺诈、考勤作弊等用途。</string>
+
+    <string name="cd_back">返回</string>
+    <string name="cd_close">关闭</string>
+    <string name="cd_my_location">回到当前位置</string>
+    <string name="cd_zoom_in">放大</string>
+    <string name="cd_zoom_out">缩小</string>
+    <string name="cd_favorite">收藏</string>
+    <string name="cd_more">更多</string>
+    <string name="cd_delete">删除</string>
+</resources>

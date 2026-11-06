@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.MockLoc" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowBackground">@color/surface_base</item>
+    </style>
+
+    <style name="Theme.MockLoc.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/brand_primary</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.MockLoc</item>
+    </style>
+</resources>
