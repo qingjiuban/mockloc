@@ -1,7 +1,7 @@
 package com.mockloc.assistant.ui.map
 
-import android.content.Context
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,15 +10,22 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -28,14 +35,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,15 +50,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.mockloc.assistant.core.GeoUtils
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.mockloc.assistant.data.map.MapTileSources
+import com.mockloc.assistant.data.model.MapStyle
 import com.mockloc.assistant.data.model.MockPoint
+import com.mockloc.assistant.data.search.PlaceResult
 import com.mockloc.assistant.data.search.PlaceSearchService
 import com.mockloc.assistant.data.search.SearchOutcome
 import com.mockloc.assistant.ui.home.HomeViewModel
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
+import kotlinx.coroutines.launch
 import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 
@@ -66,9 +74,13 @@ fun MapPickerScreen(
     val state by viewModel.uiState.collectAsState()
     var query by remember { mutableStateOf("") }
     var searching by remember { mutableStateOf(false) }
-    var selectedLat by remember { mutableStateOf(state.point?.latitude ?: 39.9042) }
-    var selectedLng by remember { mutableStateOf(state.point?.longitude ?: 116.4074) }
+    val searchResults = remember { mutableStateListOf<PlaceResult>() }
+    var showResults by remember { mutableStateOf(false) }
+
+    var selectedLat by remember { mutableDoubleStateOf(state.point?.latitude ?: 39.9042) }
+    var selectedLng by remember { mutableDoubleStateOf(state.point?.longitude ?: 116.4074) }
     var mapRef by remember { mutableStateOf<MapView?>(null) }
+    var lastScrollTime by remember { mutableStateOf(0L) }
 
     Column(Modifier.fillMaxSize()) {
         TopAppBar(
@@ -90,7 +102,7 @@ fun MapPickerScreen(
         ) {
             OutlinedTextField(
                 value = query,
-                onValueChange = { query = it },
+                onValueChange = { query = it; showResults = false; searchResults.clear() },
                 modifier = Modifier.weight(1f),
                 placeholder = { Text("搜索地点...") },
                 singleLine = true,
@@ -107,27 +119,19 @@ fun MapPickerScreen(
                 onClick = {
                     if (query.isNotBlank()) {
                         searching = true
+                        showResults = false
                         val searchService = PlaceSearchService()
                         scope.launch {
-                            val outcome = searchService.search(query)
+                            val outcome = searchService.search(query, limit = 12)
                             when (outcome) {
                                 is SearchOutcome.Success -> {
-                                    outcome.results.firstOrNull()?.let { place ->
-                                        selectedLat = place.latitude
-                                        selectedLng = place.longitude
-                                        mapRef?.let { map ->
-                                            map.controller.animateTo(GeoPoint(place.latitude, place.longitude))
-                                            map.overlays.clear()
-                                            val marker = Marker(map)
-                                            marker.position = GeoPoint(place.latitude, place.longitude)
-                                            marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                                            marker.title = place.displayName
-                                            map.overlays.add(marker)
-                                            map.invalidate()
-                                        }
-                                    }
+                                    searchResults.clear()
+                                    searchResults.addAll(outcome.results)
+                                    showResults = true
                                 }
                                 is SearchOutcome.Failure -> {
+                                    searchResults.clear()
+                                    showResults = false
                                 }
                             }
                             searching = false
@@ -143,29 +147,51 @@ fun MapPickerScreen(
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
                 factory = { ctx ->
-                    org.osmdroid.config.Configuration.getInstance().userAgentValue =
-                        ctx.packageName
                     MapView(ctx).apply {
-                        setTileSource(TileSourceFactory.MAPNIK)
+                        setTileSource(MapTileSources.OSM_STANDARD)
                         setMultiTouchControls(true)
-                        zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
+                        zoomController.setVisibility(org.osmdroid.views.CustomZoomButtonsController.Visibility.NEVER)
+                        setTilesScaledToDpi(true)
                         controller.setZoom(12.0)
                         controller.setCenter(GeoPoint(selectedLat, selectedLng))
                         mapRef = this
 
-                        setOnTouchListener { _, _ -> false }
                         addMapListener(object : org.osmdroid.events.MapListener {
                             override fun onScroll(event: org.osmdroid.events.ScrollEvent?): Boolean {
-                                val center = mapCenter
-                                if (center != null) {
-                                    selectedLat = center.latitude
-                                    selectedLng = center.longitude
+                                val now = System.currentTimeMillis()
+                                if (now - lastScrollTime > 300) {
+                                    lastScrollTime = now
+                                    val center = mapCenter
+                                    if (center != null) {
+                                        selectedLat = center.latitude
+                                        selectedLng = center.longitude
+                                    }
                                 }
                                 return true
                             }
-                            override fun onZoom(event: org.osmdroid.events.ZoomEvent?): Boolean = true
+                            override fun onZoom(event: org.osmdroid.events.ZoomEvent?): Boolean {
+                                val now = System.currentTimeMillis()
+                                if (now - lastScrollTime > 300) {
+                                    lastScrollTime = now
+                                    val center = mapCenter
+                                    if (center != null) {
+                                        selectedLat = center.latitude
+                                        selectedLng = center.longitude
+                                    }
+                                }
+                                return true
+                            }
                         })
                     }
+                },
+                update = { map ->
+                    map.postDelayed({
+                        val center = map.mapCenter
+                        if (center != null) {
+                            selectedLat = center.latitude
+                            selectedLng = center.longitude
+                        }
+                    }, 500)
                 },
             )
 
@@ -185,6 +211,44 @@ fun MapPickerScreen(
                         color = MaterialTheme.colorScheme.onPrimary,
                         fontWeight = FontWeight.Bold,
                     )
+                }
+            }
+
+            if (showResults && searchResults.isNotEmpty()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 280.dp)
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .align(Alignment.TopStart),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                    ),
+                ) {
+                    LazyColumn {
+                        items(searchResults) { result ->
+                            SearchResultRow(
+                                result = result,
+                                onClick = {
+                                    selectedLat = result.latitude
+                                    selectedLng = result.longitude
+                                    showResults = false
+                                    mapRef?.let { map ->
+                                        map.controller.animateTo(GeoPoint(result.latitude, result.longitude), 14.0, 300)
+                                        map.overlays.clear()
+                                        val marker = Marker(map)
+                                        marker.position = GeoPoint(result.latitude, result.longitude)
+                                        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                                        marker.title = result.displayName
+                                        map.overlays.add(marker)
+                                        map.invalidate()
+                                    }
+                                },
+                            )
+                            Divider()
+                        }
+                    }
                 }
             }
         }
@@ -216,6 +280,34 @@ fun MapPickerScreen(
             ) {
                 Text("确认选择此位置")
             }
+        }
+    }
+}
+
+@Composable
+private fun SearchResultRow(result: PlaceResult, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Default.Place,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(result.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+            Text(
+                result.displayName,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+            )
         }
     }
 }

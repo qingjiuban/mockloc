@@ -54,6 +54,7 @@ data class AppSettings(
 )
 
 /** 一次模拟会话的持久化快照，用于崩溃/重启恢复 */
+@Serializable
 data class SessionSnapshot(
     val point: MockPoint? = null,
     val wasRunning: Boolean = false,
