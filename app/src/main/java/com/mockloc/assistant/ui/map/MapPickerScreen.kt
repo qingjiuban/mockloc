@@ -148,7 +148,7 @@ fun MapPickerScreen(
                 modifier = Modifier.fillMaxSize(),
                 factory = { ctx ->
                     MapView(ctx).apply {
-                        setTileSource(MapTileSources.OSM_STANDARD)
+                        setTileSource(MapTileSources.CARTO_LIGHT)
                         setMultiTouchControls(true)
                         zoomController.setVisibility(org.osmdroid.views.CustomZoomButtonsController.Visibility.NEVER)
                         setTilesScaledToDpi(true)
