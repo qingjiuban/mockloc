@@ -70,9 +70,9 @@ app/src/main/
 - 验证条件：`readBack.isMock == true` 且距离 < 2m
 
 **已知问题：**
-1. **`buildLocation()` 中的 `setMock(true)` 被 `runCatching` 包裹** - 该 API 在 SDK 31+ 已废弃且被移除，静默失败不会设置 mock 标记
-2. **`addProvider()` 的 fallback 分支不存在** - 当前代码只有 `Build.VERSION.SDK_INT >= Build.VERSION_CODES.S` 分支，没有 else 分支处理旧版本设备（虽然 minSdk=29 但 SDK 31 之前仍有 SDK 29-30 的设备）
-3. **`stop()` 中 `setTestProviderEnabled(provider, false)` 可能在未注册的 provider 上调用导致 crash**
+1. **`buildLocation()` 中的 `setMock(true)` 被 `runCatching` 包裹** - 该 API 在 SDK 31+ 已废弃，静默失败不会设置 mock 标记。已改为以坐标距离为主要验证依据。
+2. **`stop()` 中 `setTestProviderEnabled(provider, false)` 可能在未注册的 provider 上调用** - 已用 `runCatching` 保护
+3. **回读验证曾过严 (v1.0.2 及以前)** - 要求 `readBack.isMock == true` 且距离 < 2m，但部分 OEM ROM 不给注入位置打 mock 标记，导致误报「授权失效」。v1.0.3 改为距离优先、isMock 辅助判断。
 
 ### 3.2 MockLocationService (`mock/service/MockLocationService.kt`)
 

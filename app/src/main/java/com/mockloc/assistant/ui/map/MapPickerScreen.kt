@@ -148,10 +148,8 @@ fun MapPickerScreen(
                 modifier = Modifier.fillMaxSize(),
                 factory = { ctx ->
                     MapView(ctx).apply {
-                        setTileSource(MapTileSources.CARTO_LIGHT)
-                        setMultiTouchControls(true)
+                        MapTileSources.configureMapView(this, state.settings.mapStyle)
                         zoomController.setVisibility(org.osmdroid.views.CustomZoomButtonsController.Visibility.NEVER)
-                        setTilesScaledToDpi(true)
                         controller.setZoom(12.0)
                         controller.setCenter(GeoPoint(selectedLat, selectedLng))
                         mapRef = this
@@ -159,7 +157,7 @@ fun MapPickerScreen(
                         addMapListener(object : org.osmdroid.events.MapListener {
                             override fun onScroll(event: org.osmdroid.events.ScrollEvent?): Boolean {
                                 val now = System.currentTimeMillis()
-                                if (now - lastScrollTime > 300) {
+                                if (now - lastScrollTime > 120) {
                                     lastScrollTime = now
                                     val center = mapCenter
                                     if (center != null) {
@@ -170,14 +168,10 @@ fun MapPickerScreen(
                                 return true
                             }
                             override fun onZoom(event: org.osmdroid.events.ZoomEvent?): Boolean {
-                                val now = System.currentTimeMillis()
-                                if (now - lastScrollTime > 300) {
-                                    lastScrollTime = now
-                                    val center = mapCenter
-                                    if (center != null) {
-                                        selectedLat = center.latitude
-                                        selectedLng = center.longitude
-                                    }
+                                val center = mapCenter
+                                if (center != null) {
+                                    selectedLat = center.latitude
+                                    selectedLng = center.longitude
                                 }
                                 return true
                             }
@@ -185,16 +179,12 @@ fun MapPickerScreen(
                     }
                 },
                 update = { map ->
-                    map.postDelayed({
-                        val center = map.mapCenter
-                        if (center != null) {
-                            selectedLat = center.latitude
-                            selectedLng = center.longitude
-                        }
-                    }, 500)
+                    val target = MapTileSources.forStyle(state.settings.mapStyle)
+                    if (map.tileProvider.tileSource.name() != target.name()) {
+                        map.setTileSource(target)
+                    }
                 },
             )
-
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,

@@ -115,11 +115,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
         loadingReal.value = true
         realError.value = null
-        val found = RealLocationReader.lastKnown(app)
-        realLocation.value = found
-        loadingReal.value = false
-        if (found == null) {
-            realError.value = "系统暂无最近定位，请到空旷处或开启 GPS 后再试"
+        try {
+            val found = RealLocationReader.lastKnown(app)
+            realLocation.value = found
+            if (found == null) {
+                realError.value = "系统暂无最近定位，请到空旷处或开启 GPS 后再试"
+            }
+        } catch (t: SecurityException) {
+            realLocation.value = null
+            realError.value = "定位权限不可用，请重新授权"
+        } finally {
+            loadingReal.value = false
         }
     }
 
@@ -252,6 +258,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun consumeMessage() {
         transient.value = null
+    }
+
+    fun showMessage(text: String) {
+        transient.value = text
     }
 
     private fun emit(text: String) {

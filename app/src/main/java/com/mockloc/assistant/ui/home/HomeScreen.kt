@@ -1,5 +1,8 @@
 package com.mockloc.assistant.ui.home
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,6 +49,34 @@ import com.mockloc.assistant.mock.MockSessionState
 fun HomeScreen(viewModel: HomeViewModel, onOpenMapPicker: () -> Unit = {}) {
     val state by viewModel.uiState.collectAsState()
 
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+    ) { granted ->
+        val fineGranted = granted[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            granted[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        viewModel.refreshPrerequisites()
+        if (fineGranted) {
+            viewModel.refreshRealLocation()
+        } else {
+            viewModel.showMessage("定位权限被拒绝，无法进行模拟定位。请到系统设置中手动授权。")
+        }
+    }
+
+    val requestLocationPermission = {
+        permissionLauncher.launch(
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+            ),
+        )
+    }
+
+    LaunchedEffect(Unit) {
+        if (!state.prerequisites.locationPermission) {
+            requestLocationPermission()
+        }
+    }
+
     LaunchedEffect(state.transientMessage) {
         state.transientMessage?.let { message ->
             kotlinx.coroutines.delay(2000)
@@ -75,6 +106,10 @@ fun HomeScreen(viewModel: HomeViewModel, onOpenMapPicker: () -> Unit = {}) {
                 error = state.error,
             )
 
+            if (!state.prerequisites.locationPermission) {
+                PermissionCard(onRequest = requestLocationPermission)
+            }
+
             LocationCard(
                 point = state.point,
                 onSelectLocation = onOpenMapPicker,
@@ -100,6 +135,33 @@ fun HomeScreen(viewModel: HomeViewModel, onOpenMapPicker: () -> Unit = {}) {
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(top = 8.dp),
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PermissionCard(onRequest: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+        ),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                "需要定位权限",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "模拟定位需要「精确位置」权限。请授予权限后重试。",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(Modifier.height(12.dp))
+            Button(onClick = onRequest) {
+                Text("授予定位权限")
             }
         }
     }

@@ -142,26 +142,35 @@ class MockLocationEngine(private val context: Context) {
             )
         }
 
-        // 回读验证：必须以系统 provider 中保存的位置为准
+        // 回读验证：以系统 provider 中保存的位置为准。
+        // 注意：部分 OEM ROM 不会给注入的位置打 isMock 标记，因此距离一致即视为成功，
+        // isMock 仅作为辅助判断，避免误报「授权失效」。
         val readBack = registeredProviders.firstNotNullOfOrNull { provider ->
             runCatching { lm.getLastKnownLocation(provider) }.getOrNull()
         }
 
-        val verified = readBack != null &&
-            readBack.isMock &&
-            GeoUtils.distanceMeters(lat, lon, readBack.latitude, readBack.longitude) < 2.0
+        if (readBack == null) {
+            return InjectionResult.Failure(
+                reason = "系统尚未返回模拟位置，可能未授权本应用",
+                verified = false,
+            )
+        }
 
-        return if (verified) {
-            InjectionResult.Success(readBack!!.latitude, readBack.longitude)
+        val distance = GeoUtils.distanceMeters(lat, lon, readBack.latitude, readBack.longitude)
+        // 距离容忍度放在 accuracy 与 5 米之间，兼容精度较差的回读
+        val tolerance = maxOf(5.0, accuracy.toDouble() + 2.0)
+        val positionMatches = distance <= tolerance
+
+        return if (positionMatches) {
+            InjectionResult.Success(readBack.latitude, readBack.longitude)
+        } else if (!readBack.isMock) {
+            InjectionResult.Failure(
+                reason = "系统返回的是真实定位，模拟授权已失效，请重新在开发者选项中选择本应用",
+                verified = false,
+            )
         } else {
             InjectionResult.Failure(
-                reason = if (readBack == null) {
-                    "系统尚未返回模拟位置，可能未授权本应用"
-                } else if (!readBack.isMock) {
-                    "系统返回的是真实定位，模拟授权已失效"
-                } else {
-                    "系统位置与目标不一致，可能被其他应用接管"
-                },
+                reason = "系统位置与目标不一致，可能被其他应用接管",
                 verified = false,
             )
         }

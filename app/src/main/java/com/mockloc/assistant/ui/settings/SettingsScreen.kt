@@ -83,7 +83,7 @@ fun SettingsScreen(viewModel: HomeViewModel) {
                     )
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        "版本 1.0.0",
+                        "版本 ${com.mockloc.assistant.BuildConfig.VERSION_NAME}",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Spacer(Modifier.height(4.dp))

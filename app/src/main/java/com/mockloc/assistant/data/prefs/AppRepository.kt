@@ -59,22 +59,24 @@ class AppRepository(context: Context) {
 
     private fun <T> Flow<T>.safe(default: T): Flow<T> = catch { emit(default) }
 
+    private fun Preferences.toSettings(): AppSettings = AppSettings(
+        intervalMillis = (this[Keys.interval] ?: 1_000L).coerceIn(MIN_INTERVAL, MAX_INTERVAL),
+        accuracyMeters = (this[Keys.accuracy] ?: 5f).coerceIn(1f, 100f),
+        altitudeMeters = (this[Keys.altitude] ?: 0f).toDouble(),
+        themeMode = this[Keys.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
+            ?: ThemeMode.SYSTEM,
+        mapStyle = this[Keys.mapStyle]?.let { runCatching { MapStyle.valueOf(it) }.getOrNull() }
+            ?: MapStyle.STANDARD,
+        injectionChannel = this[Keys.channel]?.let { runCatching { InjectionChannel.valueOf(it) }.getOrNull() }
+            ?: InjectionChannel.GPS_AND_NETWORK,
+        autoResume = this[Keys.autoResume] ?: true,
+        gcjCompensation = this[Keys.gcj] ?: false,
+        guideCompleted = this[Keys.guideDone] ?: false,
+    )
+
     val settings: Flow<AppSettings> = store.data
         .safe(androidx.datastore.preferences.core.emptyPreferences())
-        .map { p ->
-            AppSettings(
-                intervalMillis = (p[Keys.interval] ?: 1_000L).coerceIn(MIN_INTERVAL, MAX_INTERVAL),
-                accuracyMeters = (p[Keys.accuracy] ?: 5f).coerceIn(1f, 100f),
-                altitudeMeters = (p[Keys.altitude] ?: 0f).toDouble(),
-                themeMode = p[Keys.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM,
-                mapStyle = p[Keys.mapStyle]?.let { runCatching { MapStyle.valueOf(it) }.getOrNull() } ?: MapStyle.STANDARD,
-                injectionChannel = p[Keys.channel]?.let { runCatching { InjectionChannel.valueOf(it) }.getOrNull() }
-                    ?: InjectionChannel.GPS_AND_NETWORK,
-                autoResume = p[Keys.autoResume] ?: true,
-                gcjCompensation = p[Keys.gcj] ?: false,
-                guideCompleted = p[Keys.guideDone] ?: false,
-            )
-        }
+        .map { it.toSettings() }
 
     val keepAlive: Flow<Boolean> = store.data
         .safe(androidx.datastore.preferences.core.emptyPreferences())
@@ -125,20 +127,7 @@ class AppRepository(context: Context) {
     suspend fun currentSettings(): AppSettings {
         var result = AppSettings()
         store.data.safe(androidx.datastore.preferences.core.emptyPreferences())
-            .map { p ->
-                AppSettings(
-                    intervalMillis = (p[Keys.interval] ?: 1_000L).coerceIn(MIN_INTERVAL, MAX_INTERVAL),
-                    accuracyMeters = (p[Keys.accuracy] ?: 5f).coerceIn(1f, 100f),
-                    altitudeMeters = (p[Keys.altitude] ?: 0f).toDouble(),
-                    themeMode = p[Keys.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.SYSTEM,
-                    mapStyle = p[Keys.mapStyle]?.let { runCatching { MapStyle.valueOf(it) }.getOrNull() } ?: MapStyle.STANDARD,
-                    injectionChannel = p[Keys.channel]?.let { runCatching { InjectionChannel.valueOf(it) }.getOrNull() }
-                        ?: InjectionChannel.GPS_AND_NETWORK,
-                    autoResume = p[Keys.autoResume] ?: true,
-                    gcjCompensation = p[Keys.gcj] ?: false,
-                    guideCompleted = p[Keys.guideDone] ?: false,
-                )
-            }
+            .map { it.toSettings() }
             .collect { result = it }
         return result
     }

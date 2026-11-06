@@ -162,41 +162,48 @@ class MockLocationService : Service() {
                     }.getOrElse { t -> InjectionResult.Failure(t.message ?: "注入异常", false) }
                 }
 
-                when (result) {
-                    is InjectionResult.Success -> {
-                        consecutiveFailures = 0
-                        lastNotifiedError = null
-                        publish(
-                            MockSessionState.Running(
-                                point = point,
-                                injectedLatitude = result.latitude,
-                                injectedLongitude = result.longitude,
-                                verified = true,
-                                lastUpdateMillis = System.currentTimeMillis(),
-                            ),
-                        )
-                    }
-                    is InjectionResult.Failure -> {
-                        consecutiveFailures++
-                        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-                            if (result.reason != lastNotifiedError) {
-                                lastNotifiedError = result.reason
-                                handleInjectionFailure(result.reason)
-                            }
-                        } else {
+                runCatching {
+                    when (result) {
+                        is InjectionResult.Success -> {
+                            consecutiveFailures = 0
+                            lastNotifiedError = null
                             publish(
                                 MockSessionState.Running(
                                     point = point,
-                                    injectedLatitude = point.latitude,
-                                    injectedLongitude = point.longitude,
-                                    verified = false,
+                                    injectedLatitude = result.latitude,
+                                    injectedLongitude = result.longitude,
+                                    verified = true,
                                     lastUpdateMillis = System.currentTimeMillis(),
                                 ),
                             )
                         }
+                        is InjectionResult.Failure -> {
+                            consecutiveFailures++
+                            if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+                                if (result.reason != lastNotifiedError) {
+                                    lastNotifiedError = result.reason
+                                    handleInjectionFailure(result.reason)
+                                }
+                            } else {
+                                publish(
+                                    MockSessionState.Running(
+                                        point = point,
+                                        injectedLatitude = point.latitude,
+                                        injectedLongitude = point.longitude,
+                                        verified = false,
+                                        lastUpdateMillis = System.currentTimeMillis(),
+                                    ),
+                                )
+                            }
+                        }
                     }
                 }
-                delay(settings.intervalMillis)
+
+                try {
+                    delay(settings.intervalMillis)
+                } catch (c: kotlinx.coroutines.CancellationException) {
+                    throw c
+                }
             }
         }
     }
